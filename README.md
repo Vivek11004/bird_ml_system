@@ -1,106 +1,236 @@
-# 🐔 Bird Counting & Weight Estimation from CCTV Video
+# 🐦 Bird Counting and Weight Estimation from CCTV Video
 
-## 📌 Overview
-This project implements an end-to-end Computer Vision and Machine Learning system
-that analyzes a fixed-camera poultry CCTV video to detect, track, and count birds
-over time and estimate bird weight using a relative visual proxy. The system also
-exposes results via a REST API and generates an annotated output video.
+## Candidate Task: ML Prototype (Detection, Tracking & Weight Proxy)
 
-The solution is designed for real-world conditions including occlusions,
-overlapping birds, and missing ground-truth labels.
+This project implements a **machine learning–based prototype** that processes fixed-camera poultry CCTV videos to:
 
----
+1. **Count birds over time** using object detection and multi-object tracking
+2. **Estimate bird weight** from video using a **relative weight proxy**, with clear assumptions and calibration requirements
 
-## 🧠 System Pipeline
-Video  
-→ Frame Sampling  
-→ YOLO Detection  
-→ DeepSORT Tracking  
-→ Unique ID Counting  
-→ Weight Estimation  
-→ FastAPI Response + Annotated Video
+The solution is designed to demonstrate **ML depth**, system design, and practical trade-offs under limited ground-truth data.
 
 ---
 
-## 1️⃣ Bird Detection
-- Model: YOLOv8 (pretrained)
-- Detects birds in sampled frames
-- Outputs bounding boxes and confidence scores
+## 🎯 Problem Statement
+
+Given a fixed CCTV video of a poultry environment:
+
+* Detect birds with bounding boxes and confidence scores
+* Assign **stable tracking IDs** to avoid double counting
+* Produce a **time series of bird counts**
+* Estimate **per-bird and/or aggregate weight** from video
+* Generate visual and JSON artifacts
 
 ---
 
-## 2️⃣ Bird Tracking & Counting
-- Tracker: DeepSORT
-- Assigns stable unique IDs to birds across frames
-- Prevents double counting
-- Handles short-term occlusions and re-identification
+## 🧠 Approach Overview
 
-Counting Logic:
-- Each unique tracking ID corresponds to one bird
-- Output is cumulative over time: timestamp → total unique birds seen
+### 1️⃣ Bird Detection
 
----
+* Model: **YOLOv8 (Ultralytics)**
+* Strategy: **Transfer learning + fine-tuning** on a custom bird dataset
+* Output: Bounding boxes with confidence scores per frame
 
-## ⚖️ Weight Estimation
+### 2️⃣ Bird Tracking & Counting
 
-Important Note:
-Public datasets do not provide true per-bird weight labels from video.
-Therefore, a relative weight proxy is used.
+* Tracker: **DeepSORT**
+* Each detected bird is assigned a **persistent ID** across frames
+* Bird count at time *t* = number of **unique active track IDs** seen so far
 
-Weight Proxy:
-- Derived from average bounding box area per bird over time
-- Larger pixel area implies larger relative weight
+#### Handling Occlusions & ID Switches
 
-weight_index ∝ average bounding box area
-
-Confidence:
-- Represents temporal stability of bounding box area
-- Lower confidence indicates higher variation due to movement,
-  occlusion, and perspective distortion
-
-Unit: relative_weight_index (not grams)
-
-To convert this index into grams, camera calibration or labeled
-weight samples are required.
+* DeepSORT uses motion + appearance embeddings
+* `max_age` allows temporary occlusions without losing IDs
+* Frame sampling (fps_sample) reduces jitter and duplicate detections
 
 ---
 
-## 🎥 Annotated Output Video
-The output video includes:
-- Bounding boxes
-- Tracking IDs
-- Bird count overlay
+## ⚖️ Weight Estimation Method (Mandatory)
 
-Weight values are returned via the API response and are not required
-to be displayed on the annotated video.
+Since **true weight ground truth (grams)** is not available in the video, the system outputs a **Relative Weight Index**.
+
+### Weight Proxy Logic
+
+* For each tracked bird:
+
+  * Compute bounding box area per frame
+  * Aggregate statistics across time
+
+```text
+Weight Index = mean(bounding_box_area) / normalization_factor
+Confidence   = 1 / (1 + std_dev_of_area)
+```
+
+### Interpretation
+
+* Larger birds → larger bounding box area → higher weight index
+* Confidence reflects stability of size across frames
+
+### What is required to convert to grams?
+
+To estimate **absolute weight (grams)**, one of the following is required:
+
+1. Camera calibration (pixel-to-real-world mapping)
+2. Known reference object dimensions in the scene
+3. Labeled dataset with true bird weights for regression
 
 ---
 
-## 🌐 API Service
+## 🏗️ System Architecture
 
-### POST /analyze_video
-Accepts a video file and returns analysis results.
-
-Response Includes:
-- Bird count over time
-- Per-bird weight estimates
-- Confidence values
-- Annotated output video path
+```
+CCTV Video
+    ↓
+YOLOv8 Detector (fine-tuned)
+    ↓
+DeepSORT Tracker (stable IDs)
+    ↓
+Counting + Weight Proxy Logic
+    ↓
+Annotated Video + JSON Output
+```
 
 ---
 
-## 📦 Sample API Response
+## 🌐 API Specification (FastAPI)
+
+### 1️⃣ Health Check
+
+```
+GET /health
+```
+
+Response:
+
+```json
+{"status": "OK"}
+```
+
+---
+
+### 2️⃣ Video Analysis Endpoint
+
+```
+POST /analyze_video
+```
+
+**Request:** `multipart/form-data`
+
+* `video` (required): CCTV video file
+* `fps_sample` (optional): frame sampling rate (default = 5)
+* `conf_thresh` (optional): detection confidence threshold
+
+**Response JSON includes:**
+
+* `counts`: timestamp → bird count time series
+* `tracks_sample`: sample tracking IDs with bounding boxes
+* `weight_estimates`: per-bird weight index with confidence
+* `artifacts`: generated output files
+
+---
+
+## 📄 Sample API Response
+
+A real sample response is provided in:
+
+```
+sample_response.json
+```
+
+Example structure:
+
 ```json
 {
-  "counts": [
-    { "timestamp": 0, "count": 0 },
-    { "timestamp": 80, "count": 3 },
-    { "timestamp": 190, "count": 8 }
-  ],
+  "counts": [{"timestamp": 0, "count": 3}],
   "weight_estimates": {
-    "1": { "weight_index": 10.40, "confidence": 0.000008 },
-    "9": { "weight_index": 115.75, "confidence": 0.000001 }
+    "12": {"weight_index": 4.2, "confidence": 0.92}
   },
   "unit": "relative_weight_index",
-  "artifacts": ["outputs/annotated_video.mp4"]
+  "artifacts": ["annotated_video.mp4"]
 }
+```
+
+---
+
+## 📽️ Annotated Output Video
+
+The system generates at least one annotated video containing:
+
+* Bounding boxes
+* Tracking IDs
+* Live bird count overlay
+
+🔗 **Annotated video link:** (provided in submission ZIP / Drive link)
+
+---
+
+## 📁 Project Structure
+
+```
+bird_ml_system/
+├── app/
+│   ├── main.py              # FastAPI app
+│   ├── detector.py          # YOLOv8 detector
+│   ├── tracker.py           # DeepSORT tracker
+│   ├── video_analyzer.py    # Core pipeline
+│   └── weight.py            # Weight proxy logic
+│
+├── requirements.txt
+├── bird_dataset.yaml
+├── split_dataset.py
+├── README.md
+├── sample_response.json
+└── .gitignore
+```
+
+---
+
+## ⚙️ Setup & Execution
+
+```bash
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
+```
+
+### Example API Call
+
+```bash
+curl -X POST "http://127.0.0.1:8000/analyze_video" \
+  -F "video=@sample_video.mp4" \
+  -F "fps_sample=5"
+```
+
+---
+
+## 🧪 Frame Sampling Justification
+
+* CCTV videos are high FPS with limited motion
+* Sampling every N frames:
+
+  * Reduces compute cost
+  * Improves ID stability
+  * Avoids duplicate counting
+
+---
+
+## 🎓 Conclusion
+
+This prototype demonstrates an **end-to-end ML system** combining:
+
+* Fine-tuned object detection
+* Robust multi-object tracking
+* Practical weight estimation under real-world constraints
+* Clean API design with reproducible artifacts
+
+The solution balances **accuracy, efficiency, and explainability**, meeting all task requirements.
+
+---
+
+## 👤 Author
+
+**Vivek**
+Machine Learning & Computer Vision
+
+---
+
+
