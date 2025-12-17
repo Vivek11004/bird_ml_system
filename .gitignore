@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Dataset
+dataset/
+
+# YOLO outputs
+runs/
+outputs/
+
+# Videos
+*.mp4
+*.avi
+
+# Model weights
+*.pt
+
+# OS
+Thumbs.db
+.DS_Store
