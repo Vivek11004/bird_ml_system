@@ -1,0 +1,198 @@
+{
+  "counts": [
+    {
+      "timestamp": 0,
+      "count": 0
+    },
+    {
+      "timestamp": 5,
+      "count": 0
+    },
+    {
+      "timestamp": 10,
+      "count": 1
+    },
+    {
+      "timestamp": 15,
+      "count": 1
+    },
+    {
+      "timestamp": 20,
+      "count": 1
+    },
+    {
+      "timestamp": 25,
+      "count": 2
+    },
+    {
+      "timestamp": 30,
+      "count": 2
+    },
+    {
+      "timestamp": 35,
+      "count": 2
+    },
+    {
+      "timestamp": 40,
+      "count": 2
+    },
+    {
+      "timestamp": 45,
+      "count": 2
+    },
+    {
+      "timestamp": 50,
+      "count": 2
+    },
+    {
+      "timestamp": 55,
+      "count": 2
+    },
+    {
+      "timestamp": 60,
+      "count": 2
+    },
+    {
+      "timestamp": 65,
+      "count": 2
+    },
+    {
+      "timestamp": 70,
+      "count": 2
+    },
+    {
+      "timestamp": 75,
+      "count": 2
+    },
+    {
+      "timestamp": 80,
+      "count": 3
+    },
+    {
+      "timestamp": 85,
+      "count": 3
+    },
+    {
+      "timestamp": 90,
+      "count": 4
+    },
+    {
+      "timestamp": 95,
+      "count": 4
+    },
+    {
+      "timestamp": 100,
+      "count": 5
+    },
+    {
+      "timestamp": 105,
+      "count": 5
+    },
+    {
+      "timestamp": 110,
+      "count": 6
+    },
+    {
+      "timestamp": 115,
+      "count": 6
+    },
+    {
+      "timestamp": 120,
+      "count": 6
+    },
+    {
+      "timestamp": 125,
+      "count": 6
+    },
+    {
+      "timestamp": 130,
+      "count": 6
+    },
+    {
+      "timestamp": 135,
+      "count": 6
+    },
+    {
+      "timestamp": 140,
+      "count": 7
+    },
+    {
+      "timestamp": 145,
+      "count": 7
+    },
+    {
+      "timestamp": 150,
+      "count": 8
+    },
+    {
+      "timestamp": 155,
+      "count": 8
+    },
+    {
+      "timestamp": 160,
+      "count": 8
+    },
+    {
+      "timestamp": 165,
+      "count": 8
+    },
+    {
+      "timestamp": 170,
+      "count": 8
+    },
+    {
+      "timestamp": 175,
+      "count": 8
+    },
+    {
+      "timestamp": 180,
+      "count": 8
+    },
+    {
+      "timestamp": 185,
+      "count": 8
+    },
+    {
+      "timestamp": 190,
+      "count": 8
+    }
+  ],
+  "weight_estimates": {
+    "1": {
+      "weight_index": 10.405654054054054,
+      "confidence": 0.000008407283537304388
+    },
+    "2": {
+      "weight_index": 19.658274193548387,
+      "confidence": 0.000041052788561135206
+    },
+    "6": {
+      "weight_index": 81.96075652173914,
+      "confidence": 0.000002501484715502171
+    },
+    "8": {
+      "weight_index": 6.814785714285715,
+      "confidence": 0.000013182961283690406
+    },
+    "9": {
+      "weight_index": 115.75462105263158,
+      "confidence": 0.00000158910150057657
+    },
+    "10": {
+      "weight_index": 60.21391176470588,
+      "confidence": 0.000003967859860433401
+    },
+    "12": {
+      "weight_index": 89.88158181818183,
+      "confidence": 0.0000016335137244561064
+    },
+    "13": {
+      "weight_index": 37.36011111111111,
+      "confidence": 0.00002595406869359052
+    }
+  },
+  "unit": "relative_weight_index",
+  "artifacts": [
+    "outputs/annotated_video.mp4"
+  ]
+}
