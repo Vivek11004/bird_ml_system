@@ -7,7 +7,7 @@ This project implements a **machine learning–based prototype** that processes 
 1. **Count birds over time** using object detection and multi-object tracking
 2. **Estimate bird weight** from video using a **relative weight proxy**, with clear assumptions and calibration requirements
 
-The solution is designed to demonstrate **ML depth**, system design, and practical trade-offs under limited ground-truth data.
+The solution demonstrates **ML depth**, system design, and practical trade-offs under limited ground-truth data.
 
 ---
 
@@ -29,32 +29,103 @@ Given a fixed CCTV video of a poultry environment:
 
 * Model: **YOLOv8 (Ultralytics)**
 * Strategy: **Transfer learning + fine-tuning** on a custom bird dataset
+* Input size: **768 × 768**
 * Output: Bounding boxes with confidence scores per frame
+
+> The model was fine-tuned to improve detection of **small and distant birds**, which are common in fixed CCTV views.
+
+---
 
 ### 2️⃣ Bird Tracking & Counting
 
 * Tracker: **DeepSORT**
 * Each detected bird is assigned a **persistent ID** across frames
-* Bird count at time *t* = number of **unique active track IDs** seen so far
+* Bird count at time *t* = number of **unique track IDs observed so far**
 
 #### Handling Occlusions & ID Switches
 
-* DeepSORT uses motion + appearance embeddings
+* DeepSORT combines:
+
+  * Motion prediction (Kalman Filter)
+  * Appearance embeddings
 * `max_age` allows temporary occlusions without losing IDs
-* Frame sampling (fps_sample) reduces jitter and duplicate detections
+* Frame sampling reduces flickering detections and duplicate counts
+
+---
+
+## 🚀 Model Improvements & Training Strategy
+
+This section summarizes the **practical improvements applied during development**.
+
+### 🔹 Higher Input Resolution (imgsz = 768)
+
+* The model was trained with **imgsz = 768** instead of the default 640
+* Benefit:
+
+  * Better detection of **small birds far from the camera**
+  * Improved localization in dense scenes
+* Trade-off:
+
+  * Slightly slower inference
+  * Higher GPU memory usage (handled using batch size = 4)
+
+---
+
+### 🔹 Multi-Frame Processing (FPS Sampling)
+
+* Instead of processing every frame, the pipeline samples frames:
+
+```text
+Process frame if frame_index % fps_sample == 0
+```
+
+* Benefits:
+
+  * Reduces computational load
+  * Improves tracking stability
+  * Prevents repeated counting of the same bird
+* Default value: `fps_sample = 5`
+
+---
+
+### 🔹 Bounding Box Tightening (Post-Training)
+
+* Bounding box size is influenced by:
+
+  * Training annotations
+  * Detection confidence threshold (`conf_thresh`)
+* Improvements applied:
+
+  * Higher input resolution
+  * Better anchor learning through fine-tuning
+* Remaining limitation:
+
+  * Boxes may still appear slightly larger in crowded or occluded scenes
+
+---
+
+### 🔹 Fine-Tuning Summary
+
+* Base model: `yolov8n.pt`
+* Fine-tuned on: custom poultry bird dataset
+* Epochs: 60–80 (with early stopping)
+* Result:
+
+  * Improved recall for distant birds
+  * More stable detections across frames
 
 ---
 
 ## ⚖️ Weight Estimation Method (Mandatory)
 
-Since **true weight ground truth (grams)** is not available in the video, the system outputs a **Relative Weight Index**.
+Since **true weight ground truth (grams)** is not available, the system outputs a **Relative Weight Index**.
 
 ### Weight Proxy Logic
 
-* For each tracked bird:
+For each tracked bird:
 
-  * Compute bounding box area per frame
-  * Aggregate statistics across time
+* Compute bounding box area per frame
+* Aggregate statistics across time
 
 ```text
 Weight Index = mean(bounding_box_area) / normalization_factor
@@ -64,15 +135,19 @@ Confidence   = 1 / (1 + std_dev_of_area)
 ### Interpretation
 
 * Larger birds → larger bounding box area → higher weight index
-* Confidence reflects stability of size across frames
+* Confidence reflects **temporal stability**, not prediction certainty
 
-### What is required to convert to grams?
+> ⚠️ Note: Confidence values are small because they are derived from variance, not model probability.
+
+---
+
+### What Is Required to Convert to Grams?
 
 To estimate **absolute weight (grams)**, one of the following is required:
 
-1. Camera calibration (pixel-to-real-world mapping)
+1. Camera calibration (pixel → real-world scale)
 2. Known reference object dimensions in the scene
-3. Labeled dataset with true bird weights for regression
+3. Labeled dataset with bird weights for regression
 
 ---
 
@@ -81,9 +156,11 @@ To estimate **absolute weight (grams)**, one of the following is required:
 ```
 CCTV Video
     ↓
-YOLOv8 Detector (fine-tuned)
+YOLOv8 Detector (fine-tuned, imgsz=768)
     ↓
 DeepSORT Tracker (stable IDs)
+    ↓
+Multi-frame aggregation
     ↓
 Counting + Weight Proxy Logic
     ↓
@@ -114,7 +191,7 @@ Response:
 POST /analyze_video
 ```
 
-**Request:** `multipart/form-data`
+**Request (multipart/form-data):**
 
 * `video` (required): CCTV video file
 * `fps_sample` (optional): frame sampling rate (default = 5)
@@ -123,21 +200,12 @@ POST /analyze_video
 **Response JSON includes:**
 
 * `counts`: timestamp → bird count time series
-* `tracks_sample`: sample tracking IDs with bounding boxes
 * `weight_estimates`: per-bird weight index with confidence
 * `artifacts`: generated output files
 
 ---
 
 ## 📄 Sample API Response
-
-A real sample response is provided in:
-
-```
-sample_response.json
-```
-
-Example structure:
 
 ```json
 {
@@ -154,13 +222,13 @@ Example structure:
 
 ## 📽️ Annotated Output Video
 
-The system generates at least one annotated video containing:
+The system generates an annotated video with:
 
 * Bounding boxes
 * Tracking IDs
 * Live bird count overlay
 
-🔗 **Annotated video link:** (provided in submission ZIP / Drive link)
+📁 Included in submission (`outputs/annotated_video.mp4`)
 
 ---
 
@@ -169,18 +237,16 @@ The system generates at least one annotated video containing:
 ```
 bird_ml_system/
 ├── app/
-│   ├── main.py              # FastAPI app
-│   ├── detector.py          # YOLOv8 detector
-│   ├── tracker.py           # DeepSORT tracker
-│   ├── video_analyzer.py    # Core pipeline
-│   └── weight.py            # Weight proxy logic
-│
+│   ├── main.py
+│   ├── detector.py
+│   ├── tracker.py
+│   ├── video_analyzer.py
+│   └── weight.py
 ├── requirements.txt
 ├── bird_dataset.yaml
 ├── split_dataset.py
 ├── README.md
-├── sample_response.json
-└── .gitignore
+└── sample_response.json
 ```
 
 ---
@@ -202,27 +268,16 @@ curl -X POST "http://127.0.0.1:8000/analyze_video" \
 
 ---
 
-## 🧪 Frame Sampling Justification
-
-* CCTV videos are high FPS with limited motion
-* Sampling every N frames:
-
-  * Reduces compute cost
-  * Improves ID stability
-  * Avoids duplicate counting
-
----
-
 ## 🎓 Conclusion
 
-This prototype demonstrates an **end-to-end ML system** combining:
+This project demonstrates a **realistic, end-to-end ML system** for poultry analytics:
 
-* Fine-tuned object detection
-* Robust multi-object tracking
-* Practical weight estimation under real-world constraints
-* Clean API design with reproducible artifacts
+* Fine-tuned object detection (YOLOv8)
+* Robust multi-object tracking (DeepSORT)
+* Multi-frame reasoning for stability
+* Interpretable weight proxy under real-world constraints
 
-The solution balances **accuracy, efficiency, and explainability**, meeting all task requirements.
+The system prioritizes **engineering clarity, explainability, and honest assumptions**, making it suitable for both academic evaluation and real-world prototyping.
 
 ---
 
@@ -230,7 +285,3 @@ The solution balances **accuracy, efficiency, and explainability**, meeting all 
 
 **Vivek**
 Machine Learning & Computer Vision
-
----
-
-
